@@ -1,2 +1,2 @@
-# ocean-game
+# index.html
 Ocean Explorer Clicker Game
