@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ocean Explorer - Clicker Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #001f3f 0%, #003d7a 50%, #005fa3 100%);
+            color: white;
+        }
+
+        #gameCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .game-container {
+            position: relative;
+            z-index: 2;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 20px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 42px;
+            color: #00d4ff;
+            text-shadow: 0 0 20px #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #88dcff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+            margin-top: 5px;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .click-zone {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .click-zone:active {
+            transform: scale(0.95);
+        }
+
+        .ocean-orb {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #00d4ff, #0066cc, #003d7a);
+            box-shadow: 
+                0 0 60px rgba(0, 212, 255, 0.6),
+                inset 0 -30px 60px rgba(0, 0, 0, 0.3),
+                inset 0 30px 60px rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            animation: float 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ocean-orb::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shine 3s linear infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        @keyframes shine {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .click-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            font-size: 32px;
+            font-weight: bold;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) translateY(-100px);
+            }
+        }
+
+        .upgrades-panel {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 2px solid #00d4ff;
+            border-radius: 15px;
+            padding: 20px;
+            width: 280px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .upgrades-panel h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .upgrade-item {
+            background: rgba(0, 100, 150, 0.3);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upgrade-item:hover {
+            background: rgba(0, 150, 200, 0.4);
+            transform: translateX(5px);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .upgrade-item.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upgrade-item.locked:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .upgrade-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ff88;
+            margin-bottom: 5px;
+        }
+
+        .upgrade-desc {
+            font-size: 13px;
+            color: #88dcff;
+            margin-bottom: 10px;
+        }
+
+        .upgrade-level {
+            font-size: 14px;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .upgrade-cost {
+            font-size: 16px;
+            color: #ff8800;
+            font-weight: bold;
+        }
+
+        .achievements-panel {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 2px solid #ffd700;
+            border-radius: 15px;
+            padding: 20px;
+            width: 280px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .achievements-panel h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .achievement-item {
+            background: rgba(100, 80, 0, 0.3);
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .achievement-item.unlocked {
+            background: rgba(150, 120, 0, 0.4);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .achievement-icon {
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .achievement-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .achievement-desc {
+            font-size: 12px;
+            color: #ffeb99;
+            text-align: center;
+        }
+
+        #triviaModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.98), rgba(0, 50, 100, 0.98));
+            padding: 40px;
+            border-radius: 20px;
+            border: 4px solid #00d4ff;
+            color: white;
+            z-index: 1000;
+            max-width: 700px;
+            width: 90%;
+            display: none;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 100px rgba(0, 212, 255, 0.3);
+        }
+
+        #triviaModal h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 32px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .trivia-category {
+            text-align: center;
+            color: #ffd700;
+            font-size: 16px;
+            margin-bottom: 25px;
+            font-style: italic;
+        }
+
+        #triviaQuestion {
+            font-size: 24px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            text-align: center;
+            padding: 25px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 15px;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .answer-btn {
+            display: block;
+            width: 100%;
+            padding: 20px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #00aacc 0%, #006688 100%);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .answer-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .answer-btn:hover::before {
+            width: 400px;
+            height: 400px;
+        }
+
+        .answer-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.5);
+            border-color: #00d4ff;
+        }
+
+        .answer-btn.correct {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            animation: correctPulse 0.5s ease;
+        }
+
+        .answer-btn.incorrect {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes correctPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.95), rgba(0, 200, 100, 0.95));
+            color: white;
+            padding: 20px 50px;
+            border-radius: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 999;
+            display: none;
+            animation: slideDown 0.5s ease-out;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        @keyframes slideDown {
+            from {
+                top: -100px;
+                opacity: 0;
+            }
+            to {
+                top: 120px;
+                opacity: 1;
+            }
+        }
+
+        .auto-click-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 2px solid #00ff88;
+            font-size: 18px;
+            color: #00ff88;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>🌊 Ocean Explorer</h1>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Ocean Points</div>
+                    <div class="stat-value" id="points">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Per Click</div>
+                    <div class="stat-value" id="perClick">1</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Per Second</div>
+                    <div class="stat-value" id="perSecond">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-area">
+            <div class="click-zone" id="clickZone">
+                <div class="ocean-orb">
+                    🌊
+                </div>
+            </div>
+        </div>
+
+        <div class="auto-click-indicator" id="autoClickIndicator" style="display: none;">
+            Auto-clicking: <span id="autoClickRate">0</span>/sec
+        </div>
+    </div>
+
+    <div class="upgrades-panel">
+        <h2>⚡ Upgrades</h2>
+        <div id="upgradesContainer"></div>
+    </div>
+
+    <div class="achievements-panel">
+        <h2>🏆 Achievements</h2>
+        <div id="achievementsContainer"></div>
+    </div>
+
+    <div id="triviaModal">
+        <h2>🧠 Ocean Knowledge Challenge</h2>
+        <div class="trivia-category" id="triviaCategory"></div>
+        <p id="triviaQuestion"></p>
+        <div id="answersContainer"></div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Game state
+        let gameState = {
+            points: 0,
+            clickPower: 1,
+            autoClickPower: 0,
+            totalClicks: 0,
+            upgrades: {
+                clickPower1: { level: 0, cost: 10, baseCost: 10, multiplier: 1.5, power: 1, name: "🐠 Clownfish", desc: "+1 per click", category: "click" },
+                clickPower2: { level: 0, cost: 50, baseCost: 50, multiplier: 1.6, power: 5, name: "🐡 Pufferfish", desc: "+5 per click", category: "click" },
+                clickPower3: { level: 0, cost: 200, baseCost: 200, multiplier: 1.7, power: 15, name: "🦈 Shark", desc: "+15 per click", category: "click" },
+                clickPower4: { level: 0, cost: 1000, baseCost: 1000, multiplier: 1.8, power: 50, name: "🐋 Whale", desc: "+50 per click", category: "click" },
+                autoClick1: { level: 0, cost: 100, baseCost: 100, multiplier: 1.5, power: 1, name: "🦀 Crab", desc: "+1 auto/sec", category: "auto" },
+                autoClick2: { level: 0, cost: 500, baseCost: 500, multiplier: 1.6, power: 5, name: "🐙 Octopus", desc: "+5 auto/sec", category: "auto" },
+                autoClick3: { level: 0, cost: 2000, baseCost: 2000, multiplier: 1.7, power: 15, name: "🦑 Squid", desc: "+15 auto/sec", category: "auto" },
+                autoClick4: { level: 0, cost: 10000, baseCost: 10000, multiplier: 1.8, power: 50, name: "🐬 Dolphin School", desc: "+50 auto/sec", category: "auto" },
+            },
+            achievements: [
+                { id: "first_click", name: "First Splash", desc: "Make your first click", icon: "💧", unlocked: false, condition: () => gameState.totalClicks >= 1 },
+                { id: "100_clicks", name: "Wave Maker", desc: "Click 100 times", icon: "🌊", unlocked: false, condition: () => gameState.totalClicks >= 100 },
+                { id: "1000_points", name: "Ocean Enthusiast", desc: "Reach 1,000 points", icon: "🏝️", unlocked: false, condition: () => gameState.points >= 1000 },
+                { id: "first_upgrade", name: "Evolution Begins", desc: "Purchase your first upgrade", icon: "🐠", unlocked: false, condition: () => Object.values(gameState.upgrades).some(u => u.level > 0) },
+                { id: "10000_points", name: "Deep Sea Explorer", desc: "Reach 10,000 points", icon: "🔱", unlocked: false, condition: () => gameState.points >= 10000 },
+                { id: "auto_clicker", name: "Automated Depths", desc: "Get auto-clicking", icon: "⚙️", unlocked: false, condition: () => gameState.autoClickPower > 0 },
+                { id: "100000_points", name: "Ocean Master", desc: "Reach 100,000 points", icon: "👑", unlocked: false, condition: () => gameState.points >= 100000 },
+                { id: "trivia_master", name: "Knowledge of the Deep", desc: "Answer 10 trivia questions", icon: "🧠", unlocked: false, condition: () => gameState.triviaAnswered >= 10 },
+            ],
+            particles: [],
+            triviaAnswered: 0,
+            triviaCorrect: 0,
+            nextTriviaAt: 50,
+        };
+
+        // Trivia questions
+        const triviaQuestions = [
+            {
+                question: "What is the longest river in the world?",
+                answers: ["Amazon River", "Nile River", "Mississippi River", "Yangtze River"],
+                correct: 1,
+                category: "Geography"
+            },
+            {
+                question: "Through how many countries does the Nile River flow?",
+                answers: ["7 countries", "9 countries", "11 countries", "5 countries"],
+                correct: 2,
+                category: "Geography"
+            },
+            {
+                question: "What ancient civilization flourished along the Nile River?",
+                answers: ["Roman", "Greek", "Egyptian", "Mesopotamian"],
+                correct: 2,
+                category: "History"
+            },
+            {
+                question: "What is the main source of the Nile River?",
+                answers: ["Lake Victoria", "Lake Superior", "Lake Baikal", "Lake Tanganyika"],
+                correct: 0,
+                category: "Geography"
+            },
+            {
+                question: "Which city is located at the mouth of the Nile River?",
+                answers: ["Cairo", "Luxor", "Alexandria", "Aswan"],
+                correct: 2,
+                category: "Geography"
+            },
+            {
+                question: "What percentage of Egypt's population lives along the Nile?",
+                answers: ["50%", "75%", "95%", "60%"],
+                correct: 2,
+                category: "Demographics"
+            },
+            {
+                question: "What is the Nile Delta?",
+                answers: ["A dam", "Where the river meets the sea", "A waterfall", "A canyon"],
+                correct: 1,
+                category: "Geography"
+            },
+            {
+                question: "What caused the annual flooding of the Nile?",
+                answers: ["Ocean tides", "Monsoon rains", "Earthquakes", "Glacial melt"],
+                correct: 1,
+                category: "Science"
+            },
+            {
+                question: "Which pharaoh built the Great Pyramid of Giza?",
+                answers: ["Tutankhamun", "Ramses II", "Khufu", "Cleopatra"],
+                correct: 2,
+                category: "History"
+            },
+            {
+                question: "What was the ancient Egyptian writing system called?",
+                answers: ["Cuneiform", "Hieroglyphics", "Sanskrit", "Runic"],
+                correct: 1,
+                category: "History"
+            },
+            {
+                question: "What color represents the Nile's fertile soil in ancient Egypt?",
+                answers: ["Red (Deshret)", "Black (Kemet)", "White", "Yellow"],
+                correct: 1,
+                category: "Culture"
+            },
+            {
+                question: "Which dam controls the Nile's flow in modern Egypt?",
+                answers: ["Hoover Dam", "Three Gorges Dam", "Aswan High Dam", "Grand Coulee Dam"],
+                correct: 2,
+                category: "Modern History"
+            },
+            {
+                question: "What is erosion?",
+                answers: ["Building up of sediment", "Wearing away of rock and soil", "Formation of mountains", "Creation of minerals"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What is deposition in geological terms?",
+                answers: ["Breakdown of rocks", "Laying down of sediment", "Movement of water", "Growth of plants"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "Which is NOT a major agent of erosion?",
+                answers: ["Water", "Wind", "Ice", "Sunlight"],
+                correct: 3,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What landform is created by river deposition?",
+                answers: ["Canyon", "Delta", "Mountain", "Cave"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What process moves sediment from one place to another?",
+                answers: ["Weathering", "Transportation", "Precipitation", "Crystallization"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What type of erosion is caused by rivers?",
+                answers: ["Aeolian erosion", "Fluvial erosion", "Glacial erosion", "Coastal erosion"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What forms when a river deposits sediment at its mouth?",
+                answers: ["Valley", "Delta", "Plateau", "Ridge"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "On what date did the catastrophic flood occur in the Netherlands?",
+                answers: ["31 January 1951", "15 February 1953", "10 March 1952", "21 December 1950"],
+                correct: 0,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "What caused the 1951 Netherlands flood?",
+                answers: ["Tsunami", "Heavy rainfall and storm surge", "Dam collapse", "Earthquake"],
+                correct: 1,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "Which regions were most affected by the 1951 Netherlands flood?",
+                answers: ["Amsterdam only", "Southern provinces", "Northern provinces and eastern areas", "Western coastal areas"],
+                correct: 2,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "What happened to the dikes during the 1951 flood?",
+                answers: ["They held perfectly", "Many were breached", "They were raised higher", "They were removed"],
+                correct: 1,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "What did the Netherlands build after the 1951 flood to prevent future disasters?",
+                answers: ["More windmills", "Better dike systems", "Underground shelters", "Taller buildings"],
+                correct: 1,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "Why is the Netherlands particularly vulnerable to flooding?",
+                answers: ["Frequent earthquakes", "Much land is below sea level", "No rivers present", "Desert climate"],
+                correct: 1,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "What lesson did the 1951 flood teach about water management?",
+                answers: ["Floods are unpredictable", "Better infrastructure is essential", "Flooding cannot be prevented", "Dikes are unnecessary"],
+                correct: 1,
+                category: "Netherlands Flood 1951"
+            },
+            {
+                question: "How do rivers contribute to both erosion and deposition?",
+                answers: ["They only erode", "They wear away banks and deposit sediment downstream", "They only deposit", "They create mountains"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What is a floodplain formed by?",
+                answers: ["Volcanic activity", "Deposition of sediment during floods", "Erosion by wind", "Glacial movement"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "What happens during coastal erosion?",
+                answers: ["Land is built up", "Shoreline is worn away by waves", "Islands form", "Water freezes"],
+                correct: 1,
+                category: "Erosion & Deposition"
+            },
+            {
+                question: "Which feature is created by deposition in a river?",
+                answers: ["V-shaped valley", "Meander", "Waterfall", "Alluvial fan"],
+                correct: 3,
+                category: "Erosion & Deposition"
+            }
+        ];
+
+        let usedQuestions = [];
+
+        // Background particles
+        function createParticles() {
+            for (let i = 0; i < 50; i++) {
+                gameState.particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 3 + 1,
+                    speedY: Math.random() * 0.5 + 0.2,
+                    speedX: (Math.random() - 0.5) * 0.5,
+                    opacity: Math.random() * 0.5 + 0.2,
+                    type: Math.random() < 0.7 ? 'bubble' : 'fish'
+                });
+            }
+        }
+
+        function drawBackground() {
+            // Draw particles
+            gameState.particles.forEach(p => {
+                p.y -= p.speedY;
+                p.x += p.speedX;
+
+                if (p.y < -10) {
+                    p.y = canvas.height + 10;
+                    p.x = Math.random() * canvas.width;
+                }
+
+                if (p.type === 'bubble') {
+                    ctx.fillStyle = `rgba(135, 206, 250, ${p.opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = `rgba(255, 165, 0, ${p.opacity})`;
+                    ctx.font = `${p.size * 5}px Arial`;
+                    ctx.fillText('🐠', p.x, p.y);
+                }
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            requestAnimationFrame(animate);
+        }
+
+        // Click handling
+        document.getElementById('clickZone').addEventListener('click', (e) => {
+            gameState.points += gameState.clickPower;
+            gameState.totalClicks++;
+            
+            // Create floating text
+            const clickEffect = document.createElement('div');
+            clickEffect.className = 'click-effect';
+            clickEffect.textContent = `+${formatNumber(gameState.clickPower)}`;
+            clickEffect.style.left = e.clientX + 'px';
+            clickEffect.style.top = e.clientY + 'px';
+            document.body.appendChild(clickEffect);
+            
+            setTimeout(() => clickEffect.remove(), 1000);
+            
+            updateUI();
+            checkAchievements();
+            checkTriviaTrigger();
+        });
+
+        // Trivia system
+        function checkTriviaTrigger() {
+            if (gameState.points >= gameState.nextTriviaAt) {
+                gameState.nextTriviaAt += Math.floor(gameState.nextTriviaAt * 1.5);
+                showTrivia();
+            }
+        }
+
+        function showTrivia() {
+            if (usedQuestions.length === triviaQuestions.length) {
+                usedQuestions = [];
+            }
+            
+            let availableQuestions = triviaQuestions.filter((q, i) => !usedQuestions.includes(i));
+            let randomIndex = Math.floor(Math.random() * availableQuestions.length);
+            let questionIndex = triviaQuestions.indexOf(availableQuestions[randomIndex]);
+            usedQuestions.push(questionIndex);
+            
+            const question = triviaQuestions[questionIndex];
+            
+            document.getElementById('triviaQuestion').textContent = question.question;
+            document.getElementById('triviaCategory').textContent = question.category;
+            
+            const answersContainer = document.getElementById('answersContainer');
+            answersContainer.innerHTML = '';
+            
+            question.answers.forEach((answer, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn';
+                btn.innerHTML = `<span style="position: relative; z-index: 1;">${answer}</span>`;
+                btn.onclick = () => handleAnswer(index === question.correct, btn);
+                answersContainer.appendChild(btn);
+            });
+            
+            document.getElementById('triviaModal').style.display = 'block';
+        }
+
+        function handleAnswer(isCorrect, btn) {
+            const allButtons = document.querySelectorAll('.answer-btn');
+            allButtons.forEach(b => b.disabled = true);
+            
+            gameState.triviaAnswered++;
+            
+            if (isCorrect) {
+                btn.classList.add('correct');
+                gameState.triviaCorrect++;
+                
+                // Give rewards
+                const clickBonus = Math.floor(gameState.clickPower * 0.5) + 1;
+                const autoBonus = Math.floor(gameState.autoClickPower * 0.3);
+                
+                gameState.clickPower += clickBonus;
+                if (autoBonus > 0) gameState.autoClickPower += autoBonus;
+                
+                let rewardText = `🎉 Correct! +${clickBonus} Click Power`;
+                if (autoBonus > 0) rewardText += ` & +${autoBonus} Auto Power`;
+                
+                showNotification(rewardText);
+                
+                setTimeout(() => {
+                    document.getElementById('triviaModal').style.display = 'none';
+                }, 1500);
+            } else {
+                btn.classList.add('incorrect');
+                showNotification('❌ Incorrect! Try again next time');
+                
+                setTimeout(() => {
+                    document.getElementById('triviaModal').style.display = 'none';
+                }, 1500);
+            }
+            
+            updateUI();
+            checkAchievements();
+        }
+
+        function showNotification(text) {
+            const notif = document.getElementById('notification');
+            notif.textContent = text;
+            notif.style.display = 'block';
+            setTimeout(() => {
+                notif.style.display = 'none';
+            }, 3000);
+        }
+
+        // Upgrades
+        function buyUpgrade(upgradeKey) {
+            const upgrade = gameState.upgrades[upgradeKey];
+            
+            if (gameState.points >= upgrade.cost) {
+                gameState.points -= upgrade.cost;
+                upgrade.level++;
+                
+                if (upgrade.category === 'click') {
+                    gameState.clickPower += upgrade.power;
+                } else {
+                    gameState.autoClickPower += upgrade.power;
+                }
+                
+                upgrade.cost = Math.floor(upgrade.baseCost * Math.pow(upgrade.multiplier, upgrade.level));
+                
+                updateUI();
+                checkAchievements();
+            }
+        }
+
+        function renderUpgrades() {
+            const container = document.getElementById('upgradesContainer');
+            container.innerHTML = '';
+            
+            for (let key in gameState.upgrades) {
+                const upgrade = gameState.upgrades[key];
+                const canAfford = gameState.points >= upgrade.cost;
+                
+                const div = document.createElement('div');
+                div.className = 'upgrade-item' + (canAfford ? '' : ' locked');
+                div.innerHTML = `
+                    <div class="upgrade-name">${upgrade.name}</div>
+                    <div class="upgrade-desc">${upgrade.desc}</div>
+                    <div class="upgrade-level">Level: ${upgrade.level}</div>
+                    <div class="upgrade-cost">Cost: ${formatNumber(upgrade.cost)}</div>
+                `;
+                
+                if (canAfford) {
+                    div.onclick = () => buyUpgrade(key);
+                }
+                
+                container.appendChild(div);
+            }
+        }
+
+        // Achievements
+        function checkAchievements() {
+            gameState.achievements.forEach(achievement => {
+                if (!achievement.unlocked && achievement.condition()) {
+                    achievement.unlocked = true;
+                    showNotification(`🏆 Achievement Unlocked: ${achievement.name}`);
+                    renderAchievements();
+                }
+            });
+        }
+
+        function renderAchievements() {
+            const container = document.getElementById('achievementsContainer');
+            container.innerHTML = '';
+            
+            gameState.achievements.forEach(achievement => {
+                const div = document.createElement('div');
+                div.className = 'achievement-item' + (achievement.unlocked ? ' unlocked' : '');
+                div.innerHTML = `
+                    <div class="achievement-icon">${achievement.unlocked ? achievement.icon : '🔒'}</div>
+                    <div class="achievement-name">${achievement.name}</div>
+                    <div class="achievement-desc">${achievement.desc}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Auto-clicker
+        setInterval(() => {
+            if (gameState.autoClickPower > 0) {
+                gameState.points += gameState.autoClickPower;
+                updateUI();
+                checkAchievements();
+                checkTriviaTrigger();
+            }
+        }, 1000);
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('points').textContent = formatNumber(gameState.points);
+            document.getElementById('perClick').textContent = formatNumber(gameState.clickPower);
+            document.getElementById('perSecond').textContent = formatNumber(gameState.autoClickPower);
+            
+            if (gameState.autoClickPower > 0) {
+                document.getElementById('autoClickIndicator').style.display = 'block';
+                document.getElementById('autoClickRate').textContent = formatNumber(gameState.autoClickPower);
+            }
+            
+            renderUpgrades();
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return Math.floor(num).toString();
+        }
+
+        // Initialize
+        createParticles();
+        animate();
+        updateUI();
+        renderAchievements();
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
